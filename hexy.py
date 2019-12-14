@@ -1,23 +1,18 @@
-################################################################################
-# Basic example of use for Hexiwear Library
-#
-# Created: 2017-03-30 07:55:48.081359
-#
-################################################################################
+# heartbeats
+# Created at 2019-12-09 06:49:10.719102
+# rmFowuD_TB6wLMqKU92xXQ
+# Chip id retrieved f1005005501354e4ffffffffffff9300
+# (Docking Station) registered with uid: j2ojeUDnSxyquUhTCPTlyg
 
 import streams
 from nxp.hexiwear import hexiwear
 import threading
-import zLogo
-import fatfs
-import flash
-import os    # import file/directory management module
 
 
 streams.serial()
 hexi = hexiwear.HEXIWEAR()
-
 #variables
+storageHR = []
 safe_age = False
 NEGRO = 0x0000
 BLANCO = 0xFFFF
@@ -37,7 +32,6 @@ hBeats = (  [100,200],
             [80,160],
             [78,155],
             [75,150])
-c = 0
 
 def pressed_up():
     print("Up Button Pressed")
@@ -90,7 +84,6 @@ def decrement_weight():
 def screen_peso():
     try:
         print("Right Button Pressed")
-        # leer_peso()
         global SHOW_HR
         SHOW_HR = False
         hexi.draw_text("       ", x=35, y=55, w=25, h=25, color=NEGRO, background=NEGRO,  encode=False) #borrar Heart beats
@@ -110,38 +103,19 @@ def screen_peso():
         
     except Exception as e:
         print("error on right_pressed", e)
+        
 def izquierda():
-    print("izquierda")
-
-
-def leer_peso():
-    new_resource("DATA_PESO.txt")
-    ff = open("resource://DATA_PESO.txt")
-    line = ff.readline()
-    global PESO
-    PESO = int(line)
-    print("LINE PESO ", PESO)
     
-def guardar_peso():
-    new_resource("DATA_PESO.txt")
-    f = open("resource://DATA_PESO.txt","w+")
-    f.write(PESO)
-    #f.close() 
-    print("Peso guardado")
-    
-def guardar_edad():
-    new_resource("DATA_EDAD.txt")
-    print("1")
-    f = open("resource://DATA_EDAD.txt", "w+")
-    print("2")
-    print("EDAD ", EDAD)
-    line = f.readline()
-    print("LINE ", line)
-    f.write(str(EDAD))
-    print("3")
-    print("Edad guardada")
+    hexi.draw_text("      ", x=5,  y=75, w=25, h=13, color=NEGRO, background=NEGRO, encode=False) #izquierda
+    hexi.draw_text("    ",       x=80, y=5,  w=5,  h=5,  color=NEGRO, background=NEGRO, encode=False)
+    hexi.draw_text("  ",      x=80, y=55, w=5,  h=2,  color=NEGRO, background=NEGRO, encode=False)
+    hexi.draw_text("    ",    x=55, y=75, w=35, h=13, color=NEGRO, background=NEGRO, encode=False) #Derecha
+    hexi.draw_text("      ", x=35, y=35, w=25, h=25, color=NEGRO, background=NEGRO, encode=False) #EDAD
+    global SHOW_HR
+    SHOW_HR = True
+    hexi.draw_text(str(hr)+ " bmp", x=35, y=35, w=25, h=25, color=NEGRO, background=BLANCO, encode=False) #Heart beats
+    perfil()
 
-    
 def toggle_touch(): # - Al seleccionar perfil - mostramos a edad
     try:
         print("Right Button Pressed")
@@ -185,16 +159,27 @@ def read_bt_status():
         sleep(1000)
 
 def encuentraBeats():
-    print('Entro - encuentraBeats')
     for i in range(len(edades)-1):
-        print('Entro - encuentraBeats For  i: ' , i)
-        print(hBeats[i][0], hBeats[i][1])
         if(edades[i] < EDAD and edades[i+1] >= EDAD):
             HRMax = hBeats[i+1][0]
             HRMin = hBeats[i+1][1]
-            print('HRMax: ' , HRMax)
-            print('HRMin: ' , HRMin)
 
+pinMode(LED0,OUTPUT)
+
+
+def alertHigthHR():
+    for i in range(5):
+        digitalWrite(LED0, HIGH)  # turn the LED ON by setting the voltage HIGH
+        sleep(800)                # wait for a second is 1000
+        digitalWrite(LED0, LOW)   # turn the LED OFF by setting the voltage LOW
+        sleep(1000)
+
+def alertLowhHR():
+    for i in range(10):
+        hexi.vibration(200)  # turn vibration
+        sleep(800)                # wait for a second is 1000
+        
+        
 thread(read_bt_status)
 #encuentraBeats()
 
@@ -202,25 +187,26 @@ thread(read_bt_status)
 while True:
     try:
         if (SHOW_HR):
+            storageHR.append(hr)
             print("SHOW_HR: ", str(SHOW_HR))
             hr = hexi.get_heart_rate()
+            storageHR.append(hr)
             print("Heart Rate", hr, "bpm")
             print("------------------------------------------------------------------------------")
             if(hr > HRMax):
                 print("Pulsaciones altas")
+                alertHigthHR()
             if(hr < HRMin):
                 print("pulsaciones minimas")
+                alertLowhHR()
             hexi.draw_text(str(hr)+ " bmp", x=35, y=35, w=25, h=25, color=NEGRO, background=BLANCO, encode=False) #Heart beats
             perfil()
-            c += 1
-        sleep(3000)
+        sleep(3000) #wait for three seconds to storage the heart rate
         
+        if(len(storageHR) == 20): # Each 20 seconds you should save this array in a place to do analysis about that
+            print(storageHR)
+            storageHR = []
+            
     except Exception as e:
         print(e)
         sleep(3000)
-        
-        
-        
-        
-        
-        
