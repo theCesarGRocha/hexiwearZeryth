@@ -4,22 +4,27 @@
 # Chip id retrieved f1005005501354e4ffffffffffff9300
 # (Docking Station) registered with uid: j2ojeUDnSxyquUhTCPTlyg
 
+
 import streams
 from nxp.hexiwear import hexiwear
 import threading
+import fatfs
+import flash
+import os    # import file/directory management module
 
 
 streams.serial()
 hexi = hexiwear.HEXIWEAR()
-#variables
 storageHR = []
-safe_age = False
+#variables
 NEGRO = 0x0000
 BLANCO = 0xFFFF
 EDAD = 25
 PESO = 0
 HRMax = 0
 HRMin = 0
+STEPS = 5
+medicionesHR = 8
 SHOW_HR = True
 edades = [10,20,30,35,40,45,50,55,60,65,70]
 hBeats = (  [100,200],
@@ -33,16 +38,6 @@ hBeats = (  [100,200],
             [78,155],
             [75,150])
 
-def pressed_up():
-    print("Up Button Pressed")
-    hexi.vibration(100)
-    hexi.enable_bt_upd_sensors()
-
-def pressed_down():
-    print("Down Button Pressed")
-    hexi.vibration(100)
-    hexi.disable_bt_upd_sensors()
-
 def perfil():
     #                TEXT      x     y     w     h   
     hexi.draw_text("Perfil", x=65, y=75, w=25, h=13, color=NEGRO, background=BLANCO, encode=False) #perfil derecha
@@ -50,7 +45,6 @@ def perfil():
 def toggle_ble():#Guardar
     try:
         hexi.fill_screen(NEGRO, encode=True)
-        #SHOW_HR = True
         print("Left Button Pressed")
         hexi.vibration(100)
         hexi.bt_driver.toggle_adv_mode()
@@ -105,7 +99,7 @@ def screen_peso():
         print("error on right_pressed", e)
         
 def izquierda():
-    
+    hexi.draw_text("    ",    x=35, y=5,  w=25, h=13, color=NEGRO, background=NEGRO, encode=False) #arriba
     hexi.draw_text("      ", x=5,  y=75, w=25, h=13, color=NEGRO, background=NEGRO, encode=False) #izquierda
     hexi.draw_text("    ",       x=80, y=5,  w=5,  h=5,  color=NEGRO, background=NEGRO, encode=False)
     hexi.draw_text("  ",      x=80, y=55, w=5,  h=2,  color=NEGRO, background=NEGRO, encode=False)
@@ -167,19 +161,51 @@ def encuentraBeats():
 pinMode(LED0,OUTPUT)
 
 
-def alertHigthHR():
-    for i in range(5):
-        digitalWrite(LED0, HIGH)  # turn the LED ON by setting the voltage HIGH
-        sleep(800)                # wait for a second is 1000
-        digitalWrite(LED0, LOW)   # turn the LED OFF by setting the voltage LOW
-        sleep(1000)
+def alertHightHR(hr):
+    print("Entro 8")
+    if(hr > HRMax):
+        print("Pulsaciones altas")
+        for i in range(5):
+            digitalWrite(LED0, HIGH)  # turn the LED ON by setting the voltage HIGH
+            # sleep(800)                # wait for a second is 1000
+            # digitalWrite(LED0, LOW)   # turn the LED OFF by setting the voltage LOW
+            # sleep(800)
 
-def alertLowhHR():
-    for i in range(10):
-        hexi.vibration(200)  # turn vibration
-        sleep(800)                # wait for a second is 1000
+def alertLowHR(hr):
+    print("Entro 6")
+    if(hr < HRMin):
+        print("pulsaciones minimas")
+        for i in range(10):
+            hexi.vibration(200)  # turn vibration
+            # sleep(800)                # wait for a second is 1000
         
+def almacenaHR(hr):
+    print("Entro 3")
+    storageHR.append(hr)
+    print("longitud: "+ str(len(storageHR)))
+    # sleep(3000) #wait for three seconds to storage the heart rate
+    if(len(storageHR) == 20): # Each 20 seconds you should save this array in a place to do analysis about that
+        print(storageHR)        #but in this moment just empty the beats
+        storageHR = []
         
+def monitoreaHR(hr):
+    almacenaHR(hr)
+    print("Entro 4")
+    alertLowHR(hr)
+    print("Entro 7")
+    alertHightHR(hr)
+    print("Entro 9")
+        
+    
+# almacena = threading.Thread(target = almacenaHR)
+# almacena.start()
+
+# lowHR = threading.Thread(target = alertLowHR)
+# lowHR.start()
+
+# HightHR = threading.Thread(target = alertHightHR)
+# HightHR.start()
+
 thread(read_bt_status)
 #encuentraBeats()
 
@@ -187,26 +213,20 @@ thread(read_bt_status)
 while True:
     try:
         if (SHOW_HR):
-            storageHR.append(hr)
-            print("SHOW_HR: ", str(SHOW_HR))
             hr = hexi.get_heart_rate()
-            storageHR.append(hr)
             print("Heart Rate", hr, "bpm")
-            print("------------------------------------------------------------------------------")
-            if(hr > HRMax):
-                print("Pulsaciones altas")
-                alertHigthHR()
-            if(hr < HRMin):
-                print("pulsaciones minimas")
-                alertLowhHR()
+            print("-------------------------------------------------------------------")
+            if(medicionesHR >= STEPS):
+                monitoreaHR(hr)
+                medicionesHR = 0
+            else:
+                print("Entro 0")
+                medicionesHR += 1
+                print("Mediciones: " + str(medicionesHR))
             hexi.draw_text(str(hr)+ " bmp", x=35, y=35, w=25, h=25, color=NEGRO, background=BLANCO, encode=False) #Heart beats
             perfil()
-        sleep(3000) #wait for three seconds to storage the heart rate
-        
-        if(len(storageHR) == 20): # Each 20 seconds you should save this array in a place to do analysis about that
-            print(storageHR)
-            storageHR = []
-            
+
     except Exception as e:
         print(e)
         sleep(3000)
+
